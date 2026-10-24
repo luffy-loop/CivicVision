@@ -1,35 +1,35 @@
 # Implementation status (verified 2026-10-24)
 
-This is a source and local-test status report, not a production security review or model-performance claim.
+This report distinguishes local source checks from deployment, device, model and production infrastructure validation. A passing local check is not a production readiness certification.
 
-## Implemented and locally checked
+## Implemented
 
-- Existing React, TypeScript, Vite and FastAPI application retained. Theme tokens now use the requested Mocha Brown `#6F4E37`, Platinum Silver `#E5E4E2`, and Pale Lavender `#E6E0F0` across the main navigation, actions, surfaces, forms, charts and map markers.
-- Scanner validates image type/bytes/pixels, normalizes EXIF orientation, reports inference time/model version, and can render/download detection-box overlays in the browser. Demo mode still returns zero detections.
-- Reports support category correction on submission, bounded search/filter/offset pagination, filtered CSV export, detail/evidence/history views, and an explicit allowed status-transition graph. Status writes require the configured shared reviewer key.
-- Leaflet map uses OpenStreetMap tiles with attribution, status/category filters, map bounds fitting, loading/error/retry and no-coordinate states.
-- Readiness endpoint checks the database connection. PostgreSQL driver dependency and Compose overrides are present; SQLite remains the local default.
-- YOLO tools include a Pascal VOC converter, dHash/exact-image grouping before deterministic train/validation/test splitting, structure validation, reproducible training options and held-out evaluation metrics output.
-- New project docs cover architecture, API, dataset/training, deployment and testing.
+- Retained the existing React, TypeScript, Vite dashboard and FastAPI API, including the mocha, platinum and pale-lavender theme.
+- Added a mobile citizen report flow at `/report` and private status lookup at `/track`. Citizens can capture or upload a road photo, optionally share reviewed GPS coordinates, receive a one-time tracking key, and see a minimal status timeline.
+- Kept detector behavior explicit: demo mode reports zero detections and says so; model version, inference time and detections are carried with reports when a configured model is used. No model is claimed to be trained or validated.
+- Added named authority accounts with PBKDF2 password hashes and expiring HMAC-signed sessions. Authority report, metrics, export and evidence APIs require authentication. Public static upload serving has been removed.
+- Added workflow audit actors, team assignment, status transition validation and required after-repair photo/note evidence before resolution. Public citizens see only the report status timeline.
+- Added hashed citizen tracking tokens, idempotent submissions, location timestamp/accuracy metadata, upload validation, process-local request throttling and explicit CORS configuration.
+- Added Alembic migrations and local automatic upgrades. Production deployment guidance calls for an explicit migration release step.
+- Updated API, security, architecture, deployment, testing and feature documentation; added frontend API/citizen utility tests using Node's built-in test runner.
 
-## Checks actually run
+## Validation record
 
-- Backend: `python -m pytest -q` — **17 passed**, with one upstream Starlette/httpx deprecation warning.
-- Backend: `python -m compileall -q app scripts tests` — passed.
-- Training tools: converter, validator and evaluator `--help` commands — passed. Synthetic converter regression test checks repeatable splits and exact-image grouping.
-- Frontend: `npm run lint` and `npm run build` — passed on the final source state.
-- Runtime: Uvicorn started successfully; `GET /api/ready` returned `{"status":"ready","database":"ok"}`. The process was stopped after verification.
-- Compose YAML parsed with PyYAML. Docker config validation and image builds could not run because Docker CLI is not installed.
-- Backend TestClient requests ran under elevated test execution because local socket access is denied in the sandbox. A real browser walkthrough was not performed.
-- No real dataset, model training, model evaluation, PostgreSQL service, or public deployment was run.
+The following checks passed on the final source state:
 
-## Remaining limitations
+- Backend `python -m pytest -q`: **21 passed** (one upstream Starlette/httpx deprecation warning).
+- Backend `python -m compileall -q app scripts tests migrations`: passed.
+- Frontend `npm run test`: **5 passed**.
+- Frontend `npm run lint` and `npm run build`: passed.
+- Local FastAPI smoke check: `/api/health` returned `ok` in demo mode and `/api/ready` returned `ready` after migrations. The authority reports route returned the expected `503` configuration message because no local authority account/secret is configured in this environment.
+- Docker image build/config validation unavailable because Docker CLI is not installed.
+- Browser smoke inspection covered authority login and the tracking page. Citizen camera permission and GPS were not exercised on an actual device. No deployed service was verified; the configured deployment URLs could not be reached by the available lookup tool.
+- The originally reported 500 responses were backend/API failures, not React Router warnings. API health/readiness and migration startup now pass locally. The React DevTools notice and Router v7 future-flag warnings are informational.
 
-- The reviewer shared key is not citizen/reviewer/admin accounts, individual authentication, role authorization or attributable reviewer identity. Do not expose this preview workflow publicly.
-- Report images remain publicly accessible via `/uploads` and the report-image API; private object storage, authorization, retention/deletion and malware scanning are absent.
-- The schema still uses `Base.metadata.create_all`; Alembic migrations and PostgreSQL integration tests are not implemented.
-- English/Telugu localization is not implemented. Date-range analytics and map filters are absent.
-- Duplicate suggestions do not compare image similarity and cannot be confirmed/dismissed in a reviewer workflow. Road-change timelines/image comparison and reviewer classification corrections/export are absent.
-- Creating a report after a scan reuploads and reruns inference. Scanner overlays are browser-rendered; there is no server-side annotated artifact or original/annotated comparison control.
-- Converter grouping reduces exact and perceptual-image leakage but does not know capture sequence or geography. No false-positive/false-negative gallery or trained model metrics exist. Confirm dataset license directly with the linked Figshare record before reuse; it could not be verified here.
-- Docker builds, end-to-end upload/report flows, responsive browser inspection and production deployment remain unverified.
+## Remaining production prerequisites and limits
+
+- Configure `AUTHORITY_USERS`, `AUTH_TOKEN_SECRET`, `CORS_ORIGINS`, database URL, and `AUTO_MIGRATE=false` for production. Run `alembic upgrade head` as a release step. Configure `VITE_API_URL` for the deployed frontend.
+- No real road-damage dataset, licensed checkpoint, trained model, held-out model metrics, PostgreSQL service, or production deployment was available for validation. Detector demo mode is not a substitute for model evaluation.
+- Local file storage and a process-local throttle are development guardrails. Before public production, configure durable private object storage, retention/deletion policy, backups, distributed rate limits/WAF and operational alerts.
+- Reviewer and admin role values are authenticated, but per-action admin-only authorization and account lifecycle/recovery tooling are not implemented. Accounts are configured out of band.
+- Docker builds, end-to-end deployment, live PostgreSQL migration/restore, and real-device camera/GPS permissions remain unverified.

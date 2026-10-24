@@ -2,7 +2,8 @@
 
 ALLOWED_TRANSITIONS = {
     "pending_review": {"verified", "rejected"},
-    "verified": {"in_progress", "rejected"},
+    "verified": {"assigned", "in_progress", "rejected"},
+    "assigned": {"in_progress", "verified"},
     "in_progress": {"resolved", "verified"},
     "resolved": {"in_progress"},
     "rejected": {"pending_review"},

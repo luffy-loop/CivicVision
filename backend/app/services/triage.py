@@ -19,3 +19,17 @@ def estimate_priority(detections: list[dict]) -> str:
     if "crack" in kinds:
         return "low"
     return "review"
+
+def explain_priority(detections: list[dict], detector_mode: str) -> str:
+    if detector_mode != "model":
+        return "Human review required: no configured model prediction was available."
+    if not detections:
+        return "No model detections above threshold; human review required."
+    kinds = [normalized_kind(str(item.get("label", ""))) for item in detections]
+    if "pothole" in kinds and len(detections) >= 2:
+        return "Rule-based triage: multiple model detections include a pothole; verify manually."
+    if "pothole" in kinds:
+        return "Rule-based triage: one model detection is mapped to pothole; verify manually."
+    if "crack" in kinds:
+        return "Rule-based triage: model detections are mapped to road cracks; verify manually."
+    return "Rule-based triage: detected classes do not match pothole or crack labels; verify manually."

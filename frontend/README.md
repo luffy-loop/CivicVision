@@ -1,1 +1,1 @@
-Frontend app built with React, TypeScript, Vite, React Router, Recharts and Lucide icons. Run `npm install` then `npm run dev`. The Vite dev server proxies `/api` and `/uploads` to `http://127.0.0.1:8000`.
+Frontend app built with React, TypeScript, Vite, React Router, Recharts and Lucide icons. Run `npm install` then `npm run dev`. The Vite dev server proxies `/api` to `http://127.0.0.1:8000`. Citizen reporting is at `/report`; staff sign in at `/authority/login`. Configure `VITE_API_URL` to point at FastAPI for Vercel deployments.

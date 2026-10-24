@@ -12,7 +12,10 @@ services:
       MODEL_VERSION: ${MODEL_VERSION:-unversioned}
       MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-8}
       MAX_IMAGE_PIXELS: ${MAX_IMAGE_PIXELS:-25000000}
-      REVIEWER_API_KEY: ${REVIEWER_API_KEY:-}
+      AUTHORITY_USERS: ${AUTHORITY_USERS:-[]}
+      AUTH_TOKEN_SECRET: ${AUTH_TOKEN_SECRET:-}
+      AUTH_TOKEN_TTL_MINUTES: ${AUTH_TOKEN_TTL_MINUTES:-480}
+      AUTO_MIGRATE: ${AUTO_MIGRATE:-true}
     volumes:
       - civicvision_data:/data
     ports:

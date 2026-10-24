@@ -1,15 +1,21 @@
 from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
+from alembic import command
+from alembic.config import Config
 from app.core.config import get_settings
-from app.db import Base, engine
+from app.db import engine
 from app.api.routes import router
 
 settings = get_settings()
 Path(settings.upload_dir).mkdir(parents=True, exist_ok=True)
-Base.metadata.create_all(bind=engine)
+if settings.auto_migrate:
+    backend_dir = Path(__file__).resolve().parents[1]
+    alembic_config = Config(str(backend_dir / "alembic.ini"))
+    alembic_config.set_main_option("script_location", str(backend_dir / "migrations"))
+    alembic_config.set_main_option("sqlalchemy.url", settings.database_url.replace("%", "%%"))
+    command.upgrade(alembic_config, "head")
 
 app = FastAPI(
     title=settings.app_name,
@@ -24,7 +30,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(router)
-app.mount("/uploads", StaticFiles(directory=settings.upload_dir), name="uploads")
 
 @app.get("/")
 def root():

@@ -4,14 +4,16 @@
 
 ```powershell
 Copy-Item backend/.env.example .env
+# Generate a staff password hash from backend/ with python scripts/create_authority_hash.py
+# Set AUTHORITY_USERS and AUTH_TOKEN_SECRET in the untracked root .env file.
 docker compose up --build
 ```
 
-On macOS/Linux, use `cp backend/.env.example .env`. Edit values before starting; Compose persists SQLite and uploads in the `civicvision_data` volume. The frontend is served by Nginx on port 8080 and proxies `/api` and `/uploads` to the backend. `MODEL_PATH` must name a file visible at that same path inside the container; Compose does not mount weights by default.
+Compose stores SQLite and private uploads in the `civicvision_data` volume. Nginx proxies only `/api` to FastAPI. `MODEL_PATH` must name a file available inside the backend container; Compose does not mount weights by default.
 
-## PostgreSQL
+## PostgreSQL and schema updates
 
-Install the Python requirement `psycopg[binary]`, set `DATABASE_URL` to a SQLAlchemy psycopg URL, and provide network reachability to an existing PostgreSQL service. This repository does not provision PostgreSQL, run schema migrations, or verify a production database. Back up the database and test restores before accepting public reports.
+Install `psycopg[binary]`, set `DATABASE_URL` to a SQLAlchemy psycopg URL, and provide network access to a PostgreSQL service. For production, set `AUTO_MIGRATE=false` and run `alembic upgrade head` from `backend/` as a release step. PostgreSQL is supported in configuration, but no hosted PostgreSQL instance or production restore has been verified.
 
 ## Environment variables
 
@@ -21,25 +23,29 @@ Install the Python requirement `psycopg[binary]`, set `DATABASE_URL` to a SQLAlc
 | `ENVIRONMENT` | Environment label |
 | `DATABASE_URL` | SQLite or PostgreSQL SQLAlchemy URL |
 | `CORS_ORIGINS` | Comma-separated exact browser origins |
-| `UPLOAD_DIR` | Evidence storage directory |
+| `UPLOAD_DIR` | Private evidence storage directory |
 | `MAX_UPLOAD_MB` | Maximum image upload size |
 | `MAX_IMAGE_PIXELS` | Maximum decoded image pixel count |
 | `MODEL_PATH` | Optional compatible trained checkpoint |
 | `MODEL_VERSION` | Operator-supplied identifier reported by scan API |
 | `DEMO_MODE` | Allow explicit zero-detection demo responses when weights are absent |
-| `REVIEWER_API_KEY` | Shared key required for status changes in a controlled preview |
+| `AUTHORITY_USERS` | JSON array of named users with `username`, `role`, and PBKDF2 `password_hash` |
+| `AUTH_TOKEN_SECRET` | At least 32 random bytes used to sign authority sessions |
+| `AUTH_TOKEN_TTL_MINUTES` | Session lifetime, capped at 24 hours |
+| `AUTO_MIGRATE` | Apply Alembic migrations at startup; development/single instance only |
 | `DUPLICATE_RADIUS_KM` | Spatial duplicate suggestion radius |
 | `DUPLICATE_WINDOW_DAYS` | Time window for duplicate suggestions |
 
-Use a unique secret outside source control. Do not use the shared-key reviewer gate for a public service. Public deployment requires individual authentication/roles, private evidence storage, HTTPS, rate limiting, a supported migration plan, monitoring, tested backups and a privacy/retention policy. These are not supplied by the current Compose files.
+Generate a staff hash with `python scripts/create_authority_hash.py` from `backend/`, then configure for example `AUTHORITY_USERS=[{"username":"reviewer.one","role":"reviewer","password_hash":"<generated-hash>"}]`. Generate `AUTH_TOKEN_SECRET` with `python -c "import secrets; print(secrets.token_urlsafe(48))"`. Put both only in the deployment secret manager. Set `CORS_ORIGINS` to exact deployed web origins. Set `VITE_API_URL=https://civicvision-645x.onrender.com` in Vercel and rebuild the frontend. The repository does not contain a Render Blueprint, so the existing external Render root/start configuration must be reviewed in its dashboard before changing it.
+
+Compose uses a persistent local named volume; that does not configure Render object storage. Public production still requires durable private image storage, distributed edge rate limiting, privacy/retention controls, monitored database backups, and restore tests. The included upload limit is process-local and is not a WAF.
 
 ## Release checklist
 
-- Verify dataset and checkpoint licenses and document model evaluation.
-- Configure exact CORS origins and rotate all credentials.
-- Add user identity and server-side roles before exposing reviewer operations.
-- Replace public static upload access with authorized storage and retention controls.
-- Apply reviewed database migrations and test backup recovery.
-- Enable HTTPS, request limits, rate limiting, logs, metrics and alerting.
-- Verify `/api/health` and `/api/ready` in the deployment environment.
+- Verify dataset/checkpoint licenses and record held-out model evaluation.
+- Configure exact CORS origins, Vercel `VITE_API_URL`, named authority accounts, and rotate/remove any legacy shared-key secret.
+- Run reviewed Alembic migrations before application traffic.
+- Configure HTTPS, durable private image storage, retention/deletion and backups.
+- Enable distributed rate limiting, monitoring and alerting.
+- Verify `/api/health` and `/api/ready` on the deployed backend and test browser API requests from the deployed origin.
 - Run the documented backend and frontend checks against the release candidate.

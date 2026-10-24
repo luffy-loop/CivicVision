@@ -1,13 +1,13 @@
 # CivicVision AI
 **Community road-condition reporting with computer-vision assistance.**
 
-CivicVision helps people submit road-damage reports, review image-based detections, track report status, and explore issues on a map. It is designed as a portfolio-ready full-stack foundation with a real API, persistent database, tests, container setup, and a polished responsive interface.
+CivicVision helps people submit road-damage reports, review image-based detections, track report status, and explore issues on a map. It is a full-stack civic reporting foundation with separate citizen and authority experiences, a FastAPI API, versioned schema, tests, container setup, and a responsive interface. Production readiness still depends on external model, database, storage, identity and deployment configuration.
 
 > **Important:** This repository does not ship trained road-damage weights or the RDD2022 dataset. Until you train and configure your own compatible detector, the API runs in clearly labelled demo mode and returns zero detections; demo mode only exercises the scan workflow.
 
 ## Features
 - Responsive React/Vite interface with dashboard, scan workflow, report list, report detail, map and analytics.
-- FastAPI backend with image validation, SQLite persistence by default, report status updates, metrics, health check and OpenAPI docs.
+- FastAPI backend with image validation, local SQLite development storage, idempotent report submission, protected authority APIs, private evidence access, database migrations, status history and health checks.
 - Optional Ultralytics YOLO inference via `MODEL_PATH`; model weights are not bundled.
 - Explicit demo mode when no model is configured.
 - Report priorities are rule-based estimates, not measurements of real-world danger.
@@ -22,7 +22,7 @@ CivicVision helps people submit road-damage reports, review image-based detectio
 - `backend/app/services/triage.py`: transparent, simple priority heuristics.
 - `backend/app/services/duplicates.py`: candidate duplicate matching by location, category and time; never automatic merging.
 
-Reviewer status changes require `REVIEWER_API_KEY` and the review dialog sends it only for the requested action. This is a shared-key gate for controlled previews, not user accounts or role-based authentication. Configure a unique secret locally; public deployments require individual identity and authorization.
+Authority accounts are configured as named reviewer/admin users with PBKDF2 password hashes and an expiring signed session. Citizen tracking uses a one-time private key. No trained model or model metrics are bundled; without `MODEL_PATH`, the API explicitly runs in zero-detection demo mode.
 
 ## Run locally
 
@@ -41,6 +41,8 @@ py -3.11 -m venv .venv
 python -m pip install --upgrade pip
 pip install -r requirements.txt
 Copy-Item .env.example .env
+python scripts/create_authority_hash.py
+# Set AUTHORITY_USERS and AUTH_TOKEN_SECRET in backend/.env (see docs/DEPLOYMENT.md).
 uvicorn app.main:app --reload
 ```
 macOS/Linux:
@@ -51,6 +53,8 @@ source .venv/bin/activate
 python -m pip install --upgrade pip
 pip install -r requirements.txt
 cp .env.example .env
+python scripts/create_authority_hash.py
+# Set AUTHORITY_USERS and AUTH_TOKEN_SECRET in backend/.env (see docs/DEPLOYMENT.md).
 uvicorn app.main:app --reload
 ```
 API docs: http://127.0.0.1:8000/docs
@@ -62,7 +66,7 @@ cd frontend
 npm install
 npm run dev
 ```
-Open the local URL printed by Vite. The frontend uses `/api` via Vite proxy to the backend.
+Open the local URL printed by Vite. The citizen reporting route is `/report`; `/` is the authority workspace and prompts staff sign-in. The frontend uses `/api` via the local Vite proxy. For Vercel, set `VITE_API_URL` to the backend URL and rebuild.
 
 ### Optional real model
 Install the optional dependency:
@@ -81,6 +85,7 @@ Frontend checks:
 ```bash
 cd frontend
 npm install
+npm run test
 npm run lint
 npm run build
 ```
@@ -94,7 +99,7 @@ docker compose up --build
 Frontend: http://localhost:8080  
 API docs: http://localhost:8000/docs
 
-Docker Compose reads optional overrides from a root `.env` file. Set `REVIEWER_API_KEY` to enable status updates in the review dialog. Set `MODEL_PATH` only when the checkpoint is mounted at the same path inside the backend container; the Compose setup does not bundle or mount weights. For PostgreSQL, set `DATABASE_URL` to a SQLAlchemy psycopg URL and provide the database network/service separately.
+Docker Compose reads optional overrides from a root `.env` file. Configure `AUTHORITY_USERS` and `AUTH_TOKEN_SECRET` before staff sign-in. Set `MODEL_PATH` only when the checkpoint is mounted at the same path inside the backend container; the Compose setup does not bundle or mount weights. For PostgreSQL, set `DATABASE_URL` to a SQLAlchemy psycopg URL and provide the database network/service separately.
 
 ## Training a detector
 Follow [docs/DATASET_AND_TRAINING.md](docs/DATASET_AND_TRAINING.md) for RDD2022 sourcing and license verification, Pascal VOC conversion, perceptual grouping, validation, training and held-out evaluation commands. Neither data nor model weights are included, and no model results are claimed.
@@ -123,9 +128,9 @@ Useful references:
 ## Production hardening checklist
 This is a strong deployable project foundation, not a guarantee of production security or flawless operation. Before public launch:
 - Use managed PostgreSQL instead of SQLite and run migrations (Alembic).
-- Add authentication, account recovery, rate limiting, CSRF strategy if cookie auth is used, and role-based permissions.
-- Put uploaded images in private object storage; define retention and deletion policies.
-- Add antivirus/content scanning, image metadata stripping, abuse moderation and request quotas.
+- Configure and test named authority accounts; configure account recovery through the organization identity process. The current in-process upload limit needs a distributed edge/WAF limit at public scale.
+- Put uploaded images in private durable object storage; define retention and deletion policies.
+- Add malware/content scanning, image metadata stripping, abuse moderation and distributed request quotas.
 - Configure HTTPS, secrets management, trusted CORS origins and database backups.
 - Add monitoring, structured logs, alerting, model versioning and load tests.
 - Have a reviewer verify reports before they are treated as confirmed civic complaints.
