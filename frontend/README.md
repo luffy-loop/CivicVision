@@ -1,0 +1,1 @@
+Frontend app built with React, TypeScript, Vite, React Router, Recharts and Lucide icons. Run `npm install` then `npm run dev`. The Vite dev server proxies `/api` and `/uploads` to `http://127.0.0.1:8000`.

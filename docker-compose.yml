@@ -1,0 +1,37 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-sqlite:////data/civicvision.db}
+      UPLOAD_DIR: /data/uploads
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080}
+      DEMO_MODE: ${DEMO_MODE:-true}
+      MODEL_PATH: ${MODEL_PATH:-}
+      MODEL_VERSION: ${MODEL_VERSION:-unversioned}
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-8}
+      MAX_IMAGE_PIXELS: ${MAX_IMAGE_PIXELS:-25000000}
+      REVIEWER_API_KEY: ${REVIEWER_API_KEY:-}
+    volumes:
+      - civicvision_data:/data
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/ready', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "8080:80"
+    restart: unless-stopped
+volumes:
+  civicvision_data:
