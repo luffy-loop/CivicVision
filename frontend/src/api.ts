@@ -9,8 +9,10 @@ export type Metrics = {
   total: number; pending: number; in_progress: number; resolved: number; high_priority: number;
   by_category: Record<string, number>; by_status: Record<string, number>;
 }
+const API_BASE_URL = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '')
+
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, init)
+  const response = await fetch(`${API_BASE_URL}${url}`, init)
   if (!response.ok) {
     const body = await response.json().catch(() => ({}))
     throw new Error(body.detail || `Request failed (${response.status})`)
