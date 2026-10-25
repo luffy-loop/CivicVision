@@ -121,18 +121,36 @@ def main() -> None:
     for index in range(len(records)):
         groups[union.find(index)].append(index)
     group_items = list(groups.values())
-    random.Random(args.seed).shuffle(group_items)
+    rng = random.Random(args.seed)
+    rng.shuffle(group_items)
+    # Place large perceptual groups first so one oversized group cannot consume
+    # the remaining validation/test budget. Keep each group intact to prevent
+    # near-duplicate images from leaking between splits.
+    group_items.sort(key=len, reverse=True)
+
     total = len(records)
-    targets = {"train": total * (1 - args.val_fraction - args.test_fraction), "val": total * args.val_fraction}
+    targets = {
+        "train": total * (1 - args.val_fraction - args.test_fraction),
+        "val": total * args.val_fraction,
+        "test": total * args.test_fraction,
+    }
     assignments: dict[str, list[int]] = {"train": [], "val": [], "test": []}
+    split_order = ["train", "val", "test"]
+
     for group in group_items:
-        if len(assignments["train"]) < targets["train"]:
-            split = "train"
-        elif len(assignments["val"]) < targets["val"]:
-            split = "val"
-        else:
-            split = "test"
+        # Choose the split furthest below its target proportion. Normalized
+        # deficits account for smaller validation/test targets.
+        split = max(
+            split_order,
+            key=lambda name: (targets[name] - len(assignments[name])) / targets[name],
+        )
         assignments[split].extend(group)
+
+    if len(group_items) < 3 or any(not assignments[name] for name in split_order):
+        parser.error(
+            "Could not populate train, val, and test with distinct perceptual groups. "
+            "Reduce perceptual grouping or provide more annotated images."
+        )
 
     names = sorted(class_names)
     class_to_id = {name: index for index, name in enumerate(names)}
