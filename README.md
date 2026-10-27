@@ -102,28 +102,16 @@ API docs: http://localhost:8000/docs
 Docker Compose reads optional overrides from a root `.env` file. Configure `AUTHORITY_USERS` and `AUTH_TOKEN_SECRET` before staff sign-in. Set `MODEL_PATH` only when the checkpoint is mounted at the same path inside the backend container; the Compose setup does not bundle or mount weights. For PostgreSQL, set `DATABASE_URL` to a SQLAlchemy psycopg URL and provide the database network/service separately.
 
 ## Training a detector
-Follow [docs/DATASET_AND_TRAINING.md](docs/DATASET_AND_TRAINING.md) for RDD2022 sourcing and license verification, Pascal VOC conversion, perceptual grouping, validation, training and held-out evaluation commands. Neither data nor model weights are included, and no model results are claimed.
+Follow [docs/DATASET_AND_TRAINING.md](docs/DATASET_AND_TRAINING.md) for dataset provenance and license checks, Pascal VOC conversion, grouped split validation, training/resume commands, and held-out evaluation. Neither dataset nor model weights are included. The training script records experiment metadata and supports resuming an interrupted run from `last.pt`; save run outputs to durable storage when training in a temporary cloud runtime.
 
-Validate YOLO labels before training with `python scripts/validate_yolo_dataset.py --data /path/to/data.yaml` from `backend/`. This checks normalized box structure, class IDs, annotation file presence, and exact-byte duplicate images across splits. It cannot detect adjacent video frames or geographic/sequence leakage; construct splits by source road/sequence before validation.
+Run the training tools from `backend/`:
+```bash
+python scripts/validate_yolo_dataset.py --data /path/to/data.yaml
+python scripts/train_yolo.py --data /path/to/data.yaml --model yolo11n.pt --epochs 50 --imgsz 640 --batch 8 --device 0 --seed 42
+python scripts/evaluate_yolo.py --weights runs/civicvision/road-damage/weights/best.pt --data /path/to/data.yaml --split test --output runs/civicvision/road-damage/test-metrics.json
+```
 
-Useful references:
-- RDD2022 project paper: https://arxiv.org/abs/2209.08538
-- Ultralytics Python usage: https://docs.ultralytics.com/usage/python/
-- Ultralytics training: https://docs.ultralytics.com/modes/train/
-- FastAPI documentation: https://fastapi.tiangolo.com/
-- React: https://react.dev/
-- Vite: https://vite.dev/
-
-## Project documentation
-
-- [Architecture](docs/ARCHITECTURE.md)
-- [API](docs/API.md)
-- [Dataset and training](docs/DATASET_AND_TRAINING.md)
-- [Deployment](docs/DEPLOYMENT.md)
-- [Security](docs/SECURITY.md)
-- [Testing](docs/TESTING.md)
-- [Features](docs/FEATURES.md)
-- [Implementation status](docs/IMPLEMENTATION_STATUS.md)
+Do not configure `MODEL_PATH` until the selected checkpoint has been evaluated on a held-out test split and reviewed manually. Check the dataset and model licenses before redistributing derived weights.
 
 ## Production hardening checklist
 This is a strong deployable project foundation, not a guarantee of production security or flawless operation. Before public launch:
